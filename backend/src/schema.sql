@@ -11,11 +11,14 @@ CREATE TABLE IF NOT EXISTS games (
   metacritic  INTEGER,
   genres      TEXT[] DEFAULT '{}',
   platforms   TEXT[] DEFAULT '{}',
-  popularity  INTEGER
+  popularity  INTEGER,
+  total_reviews INTEGER
 );
 
 -- Popularity rank (lower = more popular). Added for existing tables.
 ALTER TABLE games ADD COLUMN IF NOT EXISTS popularity INTEGER;
+-- Number of Steam reviews (a popularity/recognition signal).
+ALTER TABLE games ADD COLUMN IF NOT EXISTS total_reviews INTEGER;
 
 CREATE INDEX IF NOT EXISTS idx_games_name ON games (lower(name));
 

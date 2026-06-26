@@ -7,7 +7,8 @@ import { Icon } from "../components/Icons.jsx";
 const PAGE_SIZE = 48;
 
 const SORTS = [
-  { key: "popular", label: "Más populares" },
+  { key: "popular", label: "Mejores juegos" },
+  { key: "reviews", label: "Más reseñados" },
   { key: "rating", label: "Mejor valorados" },
   { key: "name", label: "A–Z" },
 ];

@@ -27,7 +27,7 @@ async function main() {
   // Batch the upserts into multi-row INSERT statements. One round-trip per
   // game over the network is painfully slow for thousands of rows, so we group
   // them (default 500 per statement) which is dramatically faster.
-  const COLS = 10;
+  const COLS = 11;
   const BATCH = 500;
   let inserted = 0;
 
@@ -38,7 +38,7 @@ async function main() {
     chunk.forEach((g, i) => {
       const b = i * COLS;
       values.push(
-        `($${b + 1},$${b + 2},$${b + 3},$${b + 4},$${b + 5},$${b + 6},$${b + 7},$${b + 8},$${b + 9},$${b + 10})`,
+        `($${b + 1},$${b + 2},$${b + 3},$${b + 4},$${b + 5},$${b + 6},$${b + 7},$${b + 8},$${b + 9},$${b + 10},$${b + 11})`,
       );
       params.push(
         g.id,
@@ -51,11 +51,12 @@ async function main() {
         g.genres ?? [],
         g.platforms ?? [],
         g.popularity ?? null,
+        g.total_reviews ?? null,
       );
     });
 
     const result = await pool.query(
-      `INSERT INTO games (steam_id, slug, name, released, image_url, rating, metacritic, genres, platforms, popularity)
+      `INSERT INTO games (steam_id, slug, name, released, image_url, rating, metacritic, genres, platforms, popularity, total_reviews)
        VALUES ${values.join(',')}
        ON CONFLICT (steam_id) DO UPDATE SET
          name = EXCLUDED.name,
@@ -64,7 +65,8 @@ async function main() {
          metacritic = EXCLUDED.metacritic,
          genres = EXCLUDED.genres,
          platforms = EXCLUDED.platforms,
-         popularity = EXCLUDED.popularity`,
+         popularity = EXCLUDED.popularity,
+         total_reviews = EXCLUDED.total_reviews`,
       params,
     );
     inserted += result.rowCount;

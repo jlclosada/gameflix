@@ -1505,6 +1505,11 @@ select option {
   font-weight: 700;
   color: var(--muted);
 }
+.cc-reviews {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--accent-2);
+}
 .cc-genre {
   font-size: 0.7rem;
   font-weight: 600;

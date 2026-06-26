@@ -124,6 +124,15 @@ export default function GameDetail({ onAuth }) {
             ) : (
               <span className="badge">Sin valoraciones</span>
             )}
+            {typeof game.rating === "number" && (
+              <span className="badge">
+                <Icon.Star style={{ width: 12, height: 12, color: "#ffd25c" }} />
+                {game.rating.toFixed(1)} en Steam
+                {game.total_reviews
+                  ? ` · ${game.total_reviews.toLocaleString("es-ES")} reseñas`
+                  : ""}
+              </span>
+            )}
             {game.released && <span className="badge">{game.released}</span>}
             {game.metacritic && (
               <span className="badge">Metacritic {game.metacritic}</span>

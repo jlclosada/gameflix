@@ -11,6 +11,13 @@ function year(released) {
   return m ? m[0] : null;
 }
 
+function compactReviews(n) {
+  if (!n) return null;
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
+  return String(n);
+}
+
 export default function CatalogCard({ game }) {
   const [broken, setBroken] = useState(false);
   const showImage = game.image_url && !broken;
@@ -18,6 +25,7 @@ export default function CatalogCard({ game }) {
     typeof game.rating === "number" ? Math.round(game.rating * 10) / 10 : null;
   const yr = year(game.released);
   const genres = (game.genres || []).slice(0, 2);
+  const reviews = compactReviews(game.total_reviews);
 
   return (
     <Link to={`/game/${game.id}`} className="catalog-card">
@@ -46,6 +54,7 @@ export default function CatalogCard({ game }) {
         </span>
         <div className="cc-meta">
           {yr && <span className="cc-year">{yr}</span>}
+          {reviews && <span className="cc-reviews">{reviews} reseñas</span>}
           {genres.map((g) => (
             <span key={g} className="cc-genre">
               {g}

@@ -370,6 +370,88 @@ def fetch_rating(session: requests.Session, appid: int) -> float | None:
     return round((positive / total) * 5, 2)
 
 
+def fetch_review_summary(
+    session: requests.Session, appid: int
+) -> dict[str, Any] | None:
+    """Return the full review summary for a game: total reviews, positive
+    percentage and a 0-5 rating. Used to rank games by quality AND popularity."""
+    try:
+        payload = request_json(
+            session,
+            f"{APPREVIEWS_URL}/{appid}",
+            {"json": 1, "language": "all", "num_per_page": 0, "purchase_type": "all"},
+        )
+    except DownloadError:
+        return None
+    summary = payload.get("query_summary") or {}
+    positive = int(summary.get("total_positive") or 0)
+    negative = int(summary.get("total_negative") or 0)
+    total = positive + negative
+    if total <= 0:
+        return {"total_reviews": 0, "positive_pct": None, "rating": None}
+    pct = positive / total
+    return {
+        "total_reviews": total,
+        "positive_pct": round(pct, 4),
+        # 0-5 rating shown in the UI (only meaningful with enough reviews).
+        "rating": round(pct * 5, 2) if total >= 10 else None,
+    }
+
+
+def enrich_with_reviews(
+    session: requests.Session,
+    games: list[dict[str, Any]],
+    workers: int,
+) -> list[dict[str, Any]]:
+    """Fetch the Steam review summary for every game (in parallel), then rank
+    the whole catalog by a combined quality x popularity score so the best,
+    most-reviewed games surface first.
+
+    score = positive_pct * log10(total_reviews + 1)
+
+    A game needs both a high approval rating AND many reviews to rank high,
+    which matches what players consider "the best, well-known games".
+    """
+    import math
+
+    print(f"\nFetching review summaries for {len(games)} games ({workers} workers)...")
+    done = 0
+    by_id = {g["id"]: g for g in games}
+
+    def work(g: dict[str, Any]) -> tuple[int, dict[str, Any] | None]:
+        return g["id"], fetch_review_summary(session, g["id"])
+
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        futures = [executor.submit(work, g) for g in games]
+        for future in as_completed(futures):
+            appid, summary = future.result()
+            done += 1
+            g = by_id[appid]
+            if summary:
+                g["rating"] = summary["rating"]
+                g["total_reviews"] = summary["total_reviews"]
+                pct = summary["positive_pct"] or 0.0
+                g["_score"] = pct * math.log10(summary["total_reviews"] + 1)
+            else:
+                g["rating"] = g.get("rating")
+                g["total_reviews"] = g.get("total_reviews", 0)
+                g["_score"] = 0.0
+            if done % 200 == 0 or done == len(games):
+                print(f"  [{done}/{len(games)}] reviews fetched")
+
+    # Rank by the combined score (best first) and store as popularity.
+    ranked = sorted(games, key=lambda g: g.get("_score", 0.0), reverse=True)
+    for i, g in enumerate(ranked):
+        g["popularity"] = i
+        g.pop("_score", None)
+    print(
+        f"Ranked catalog by quality x popularity. Top: "
+        f"{', '.join(g['name'] for g in ranked[:5])}"
+    )
+    return ranked
+
+
+
 def cover_urls(appid: int, header_image: str | None) -> list[str]:
     """Candidate cover image URLs in priority order (vertical first)."""
     urls = [
@@ -535,6 +617,16 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--enrich-reviews",
+        action="store_true",
+        help=(
+            "Load the existing games.json and enrich every game with its Steam "
+            "review summary (total reviews + approval rating), then re-rank the "
+            "whole catalog by quality x popularity so the best, most-reviewed "
+            "games come first. Re-saves games.json. No new games are fetched."
+        ),
+    )
+    parser.add_argument(
         "--workers", type=int, default=8, help="Concurrent image downloads."
     )
     parser.add_argument(
@@ -561,6 +653,17 @@ def main(argv: list[str] | None = None) -> int:
     output_dir: Path = args.output_dir
     images_dir = output_dir / "images"
     manifest_path = output_dir / "games.json"
+
+    if args.enrich_reviews:
+        if not manifest_path.exists():
+            print(f"Manifest not found: {manifest_path}", file=sys.stderr)
+            return 1
+        existing = json.loads(manifest_path.read_text(encoding="utf-8"))
+        print(f"Loaded {len(existing)} games from {manifest_path}")
+        games = enrich_with_reviews(session, existing, args.workers)
+        save_manifest(games, manifest_path)
+        print("Done.")
+        return 0
 
     if args.by_category:
         print(

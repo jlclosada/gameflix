@@ -16,8 +16,10 @@ gamesRouter.get('/', async (req, res, next) => {
     // Whitelisted sort orders (avoids SQL injection on ORDER BY).
     const SORTS = {
       popular: 'popularity ASC NULLS LAST, rating DESC NULLS LAST, name ASC',
+      rating:
+        'rating DESC NULLS LAST, total_reviews DESC NULLS LAST, popularity ASC NULLS LAST',
+      reviews: 'total_reviews DESC NULLS LAST, popularity ASC NULLS LAST',
       name: 'name ASC',
-      rating: 'rating DESC NULLS LAST, popularity ASC NULLS LAST, name ASC',
     };
     const orderBy = SORTS[req.query.sort] || SORTS.popular;
 
@@ -59,7 +61,7 @@ gamesRouter.get('/', async (req, res, next) => {
     const offsetIdx = params.length;
 
     const { rows } = await query(
-      `SELECT id, name, image_url, released, rating, metacritic, genres, platforms
+      `SELECT id, name, image_url, released, rating, metacritic, genres, platforms, total_reviews
        FROM games
        ${where}
        ORDER BY ${orderBy}
@@ -95,7 +97,7 @@ gamesRouter.get('/:id', optionalAuth, async (req, res, next) => {
     }
 
     const gameResult = await query(
-      `SELECT id, steam_id, slug, name, released, image_url, rating, metacritic, genres, platforms
+      `SELECT id, steam_id, slug, name, released, image_url, rating, metacritic, genres, platforms, total_reviews
        FROM games WHERE id = $1`,
       [id],
     );
