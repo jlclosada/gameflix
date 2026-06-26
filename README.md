@@ -106,37 +106,48 @@ Para producción, configura `VITE_API_URL` con la URL del backend desplegado.
 
 ---
 
-## 4. Despliegue gratuito (Render + Supabase)
+## 4. Despliegue gratuito (Supabase + Render + Netlify)
 
-Coste **0€**: la API y el frontend van en **Render** (plan free) y la base de
-datos PostgreSQL en **Supabase** (gratis y sin caducidad). El archivo
-[`render.yaml`](render.yaml) define la API y el frontend como un _Blueprint_.
+Coste **0€**:
+
+- **Base de datos**: PostgreSQL en **Supabase** (gratis, sin caducidad).
+- **Backend API**: **Render** (plan free) — ver [`render.yaml`](render.yaml).
+- **Frontend**: **Netlify** (gratis) — ver [`netlify.toml`](netlify.toml).
 
 ### 4.1. Base de datos en Supabase
 
 1. Crea una cuenta en [supabase.com](https://supabase.com) y un nuevo proyecto
    (elige una contraseña para la base de datos y guárdala).
-2. Ve a **Project Settings → Database → Connection string → URI**.
-3. Copia la cadena de **Session pooler** (puerto `5432`). Tendrá esta forma:
+2. Ve a **Connect → Session pooler** y copia la cadena (puerto `5432`):
 
    ```
-   postgresql://postgres.xxxxx:[YOUR-PASSWORD]@aws-0-eu-...pooler.supabase.com:5432/postgres
+   postgresql://postgres.xxxxx:[YOUR-PASSWORD]@aws-...pooler.supabase.com:5432/postgres
    ```
 
    Sustituye `[YOUR-PASSWORD]` por la contraseña de tu proyecto. Esta es tu
    `DATABASE_URL`.
 
-### 4.2. Backend + frontend en Render
+### 4.2. Backend en Render
 
 1. En [Render](https://render.com): **New → Blueprint** y selecciona el repo.
-2. Render leerá `render.yaml` y creará `tierlist-api` y `tierlist-web`.
+2. Render leerá `render.yaml` y creará `tierlist-api`.
 3. En `tierlist-api` → **Environment**, pega tu `DATABASE_URL` de Supabase
    (la variable ya aparece como `sync: false`). Deja `PGSSL=true`.
-4. Cuando la API esté _Live_, en `tierlist-web` → **Environment** pon
-   `VITE_API_URL` con la URL de la API (p. ej.
-   `https://tierlist-api.onrender.com`) y vuelve a desplegar el frontend.
+4. Cuando esté _Live_, comprueba `https://<tu-api>.onrender.com/api/health`.
 
-### 4.3. Cargar los juegos en producción (una vez)
+### 4.3. Frontend en Netlify
+
+1. En [Netlify](https://netlify.com): **Add new site → Import an existing project**
+   → conecta GitHub → selecciona el repo `gameflix`.
+2. Netlify detectará [`netlify.toml`](netlify.toml) (base `frontend`, build
+   `npm run build`, publish `frontend/dist`).
+3. En **Site settings → Environment variables**, añade `VITE_API_URL` con la URL
+   del backend en Render (p. ej. `https://tierlist-api.onrender.com`).
+4. Lanza un **Deploy** (Trigger deploy) para que el build use esa variable.
+5. Opcional: en Render, cambia `CORS_ORIGIN` por tu URL de Netlify
+   (p. ej. `https://gameflix.netlify.app`) para restringir el acceso.
+
+### 4.4. Cargar los juegos en producción (una vez)
 
 ```bash
 cd downloader && python steam_downloader.py --limit 200   # genera games.json
@@ -144,11 +155,11 @@ cd ../backend
 DATABASE_URL="<TU_DATABASE_URL_DE_SUPABASE>" PGSSL=true npm run seed
 ```
 
-> El plan gratuito de Render duerme los servicios tras ~15 min de inactividad;
+> El plan gratuito de Render duerme el backend tras ~15 min de inactividad;
 > el primer acceso luego tarda unos segundos en despertar. Supabase no caduca.
 
 ### Alternativas
 
 - **Base de datos**: [Neon](https://neon.tech) también ofrece Postgres gratis
   sin caducidad → usa su `DATABASE_URL` igual que con Supabase.
-- **Frontend**: Vercel o Netlify (`build` = `npm run build`, salida = `dist`).
+- **Frontend**: Vercel también vale (build `npm run build`, salida `dist`).

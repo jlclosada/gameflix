@@ -1,0 +1,13 @@
+# Netlify configuration for the GameTier frontend (Vite + React).
+# Set the "Base directory" to `frontend` in the Netlify UI, or rely on this file.
+
+[build]
+  base = "frontend"
+  command = "npm install && npm run build"
+  publish = "frontend/dist"
+
+# Single Page App: send every route to index.html so client-side routing works.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

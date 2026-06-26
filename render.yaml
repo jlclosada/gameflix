@@ -1,6 +1,7 @@
 # Render Blueprint for the GameTier app.
-# Deploys: Node API + static React frontend on Render.
+# Deploys: Node API on Render.
 # The PostgreSQL database is hosted for free on Supabase (no expiry).
+# The React frontend is deployed separately on Netlify (see netlify.toml).
 # Docs: https://render.com/docs/blueprint-spec
 
 services:
@@ -24,24 +25,9 @@ services:
         sync: false
       - key: PGSSL
         value: 'true'
+      # Set this to your Netlify site URL once deployed, e.g.
+      # https://gameflix.netlify.app  (comma-separated for multiple origins).
       - key: CORS_ORIGIN
         value: '*'
       - key: NODE_VERSION
         value: '20'
-
-  # Frontend static site
-  - type: web
-    name: tierlist-web
-    runtime: static
-    rootDir: frontend
-    buildCommand: npm install && npm run build
-    staticPublishPath: dist
-    envVars:
-      # After the first deploy, set this to the real API URL, e.g.
-      # https://tierlist-api.onrender.com
-      - key: VITE_API_URL
-        sync: false
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
