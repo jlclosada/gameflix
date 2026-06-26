@@ -24,20 +24,23 @@ async function main() {
   const games = JSON.parse(readFileSync(manifestPath, 'utf-8'));
   console.log(`Loaded ${games.length} games from ${manifestPath}`);
 
+  // Batch the upserts into multi-row INSERT statements. One round-trip per
+  // game over the network is painfully slow for thousands of rows, so we group
+  // them (default 500 per statement) which is dramatically faster.
+  const COLS = 10;
+  const BATCH = 500;
   let inserted = 0;
-  for (const g of games) {
-    const result = await pool.query(
-      `INSERT INTO games (steam_id, slug, name, released, image_url, rating, metacritic, genres, platforms)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-       ON CONFLICT (steam_id) DO UPDATE SET
-         name = EXCLUDED.name,
-         image_url = EXCLUDED.image_url,
-         rating = EXCLUDED.rating,
-         metacritic = EXCLUDED.metacritic,
-         genres = EXCLUDED.genres,
-         platforms = EXCLUDED.platforms
-       RETURNING id`,
-      [
+
+  for (let start = 0; start < games.length; start += BATCH) {
+    const chunk = games.slice(start, start + BATCH);
+    const values = [];
+    const params = [];
+    chunk.forEach((g, i) => {
+      const b = i * COLS;
+      values.push(
+        `($${b + 1},$${b + 2},$${b + 3},$${b + 4},$${b + 5},$${b + 6},$${b + 7},$${b + 8},$${b + 9},$${b + 10})`,
+      );
+      params.push(
         g.id,
         g.slug,
         g.name,
@@ -47,12 +50,32 @@ async function main() {
         g.metacritic ?? null,
         g.genres ?? [],
         g.platforms ?? [],
-      ],
+        g.popularity ?? null,
+      );
+    });
+
+    const result = await pool.query(
+      `INSERT INTO games (steam_id, slug, name, released, image_url, rating, metacritic, genres, platforms, popularity)
+       VALUES ${values.join(',')}
+       ON CONFLICT (steam_id) DO UPDATE SET
+         name = EXCLUDED.name,
+         image_url = EXCLUDED.image_url,
+         rating = EXCLUDED.rating,
+         metacritic = EXCLUDED.metacritic,
+         genres = EXCLUDED.genres,
+         platforms = EXCLUDED.platforms,
+         popularity = EXCLUDED.popularity`,
+      params,
     );
-    if (result.rowCount > 0) inserted += 1;
+    inserted += result.rowCount;
+    console.log(
+      `  Upserted ${Math.min(start + BATCH, games.length)}/${games.length}...`,
+    );
   }
 
   console.log(`Seeded ${inserted} games into the database.`);
+  // Refresh planner statistics so the fast row-count estimate is accurate.
+  await pool.query('ANALYZE games');
   await pool.end();
 }
 

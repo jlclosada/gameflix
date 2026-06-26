@@ -53,10 +53,17 @@ export const api = {
   myReviews: () => request(`/api/auth/me/reviews`),
 
   // Games
-  getGames: ({ search = '', genre = '', limit = 60, offset = 0 } = {}) => {
+  getGames: ({
+    search = '',
+    genre = '',
+    limit = 60,
+    offset = 0,
+    sort = '',
+  } = {}) => {
     const params = new URLSearchParams({ limit, offset });
     if (search) params.set('search', search);
     if (genre) params.set('genre', genre);
+    if (sort) params.set('sort', sort);
     return request(`/api/games?${params.toString()}`);
   },
   getGenres: () => request(`/api/games/genres`),

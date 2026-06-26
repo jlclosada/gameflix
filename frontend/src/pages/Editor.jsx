@@ -57,8 +57,12 @@ export default function Editor({ onAuth }) {
   const [search, setSearch] = useState("");
   const [genreFilter, setGenreFilter] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [poolTotal, setPoolTotal] = useState(0);
   const [error, setError] = useState("");
   const [publishing, setPublishing] = useState(false);
+
+  const POOL_PAGE = 60;
 
   const draggedId = useRef(null);
   const [draggingId, setDraggingId] = useState(null);
@@ -92,13 +96,39 @@ export default function Editor({ onAuth }) {
       const data = await api.getGames({
         search,
         genre: genreOverride !== undefined ? genreOverride : genreFilter,
-        limit: 80,
+        limit: POOL_PAGE,
+        offset: 0,
       });
       setPool(data.games || []);
+      setPoolTotal(data.total || 0);
     } catch (e) {
       setError(e.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Append the next page of games to the pool (keeps already-loaded ones).
+  const loadMore = async () => {
+    setLoadingMore(true);
+    setError("");
+    try {
+      const data = await api.getGames({
+        search,
+        genre: genreFilter,
+        limit: POOL_PAGE,
+        offset: pool.length,
+      });
+      setPool((prev) => {
+        const seen = new Set(prev.map((g) => g.id));
+        const next = (data.games || []).filter((g) => !seen.has(g.id));
+        return [...prev, ...next];
+      });
+      setPoolTotal(data.total || 0);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoadingMore(false);
     }
   };
 
@@ -386,6 +416,11 @@ export default function Editor({ onAuth }) {
       >
         <div className="pool-header">
           <h3>Catálogo de juegos</h3>
+          {poolTotal > 0 && (
+            <span className="pool-count">
+              {pool.length} de {poolTotal.toLocaleString("es-ES")}
+            </span>
+          )}
           <div className="spacer" />
           <div className="search">
             <Icon.Search />
@@ -407,7 +442,7 @@ export default function Editor({ onAuth }) {
               </option>
             ))}
           </select>
-          <button className="secondary" onClick={loadGames}>
+          <button className="secondary" onClick={() => loadGames()}>
             Buscar
           </button>
         </div>
@@ -418,22 +453,35 @@ export default function Editor({ onAuth }) {
             Cargando juegos...
           </div>
         ) : (
-          <div className="pool-grid">
-            {pool
-              .filter((g) => !placedIds.has(g.id))
-              .map((game) => (
-                <GameTile
-                  key={game.id}
-                  game={game}
-                  onDragStart={handleDragStart}
-                  onDragEnd={handleDragEnd}
-                  dragging={draggingId === game.id}
-                />
-              ))}
-            {pool.filter((g) => !placedIds.has(g.id)).length === 0 && (
-              <p className="muted">No hay juegos. Prueba otra búsqueda.</p>
+          <>
+            <div className="pool-grid">
+              {pool
+                .filter((g) => !placedIds.has(g.id))
+                .map((game) => (
+                  <GameTile
+                    key={game.id}
+                    game={game}
+                    onDragStart={handleDragStart}
+                    onDragEnd={handleDragEnd}
+                    dragging={draggingId === game.id}
+                  />
+                ))}
+              {pool.filter((g) => !placedIds.has(g.id)).length === 0 && (
+                <p className="muted">No hay juegos. Prueba otra búsqueda.</p>
+              )}
+            </div>
+            {pool.length < poolTotal && (
+              <div className="pool-more">
+                <button
+                  className="secondary"
+                  onClick={loadMore}
+                  disabled={loadingMore}
+                >
+                  {loadingMore ? "Cargando..." : "Cargar más juegos"}
+                </button>
+              </div>
             )}
-          </div>
+          </>
         )}
       </div>
     </div>

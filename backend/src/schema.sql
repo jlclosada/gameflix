@@ -10,10 +10,24 @@ CREATE TABLE IF NOT EXISTS games (
   rating      REAL,
   metacritic  INTEGER,
   genres      TEXT[] DEFAULT '{}',
-  platforms   TEXT[] DEFAULT '{}'
+  platforms   TEXT[] DEFAULT '{}',
+  popularity  INTEGER
 );
 
+-- Popularity rank (lower = more popular). Added for existing tables.
+ALTER TABLE games ADD COLUMN IF NOT EXISTS popularity INTEGER;
+
 CREATE INDEX IF NOT EXISTS idx_games_name ON games (lower(name));
+
+-- Fast catalog ordering: most popular games first.
+CREATE INDEX IF NOT EXISTS idx_games_popularity ON games (popularity ASC NULLS LAST);
+
+-- Trigram index for fast case-insensitive substring search (LIKE '%term%').
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+CREATE INDEX IF NOT EXISTS idx_games_name_trgm ON games USING gin (lower(name) gin_trgm_ops);
+
+-- GIN index for fast genre filtering (genre = ANY(genres)).
+CREATE INDEX IF NOT EXISTS idx_games_genres ON games USING gin (genres);
 
 -- Registered users. Passwords are stored as bcrypt hashes.
 CREATE TABLE IF NOT EXISTS users (

@@ -236,6 +236,9 @@ def fetch_store_search(
                     "metacritic": None,
                     "genres": list(assign_genres) if assign_genres else [],
                     "platforms": [],
+                    # Lower = more popular. Results arrive most-reviewed first,
+                    # so the running index is a good popularity proxy.
+                    "popularity": len(games),
                 }
             )
             added += 1
@@ -298,9 +301,17 @@ def fetch_by_category(
                 for gn in g["genres"]:
                     if gn not in existing["genres"]:
                         existing["genres"].append(gn)
+                # Keep the best (lowest) popularity rank across categories.
+                if g.get("popularity", 1_000_000) < existing.get("popularity", 1_000_000):
+                    existing["popularity"] = g["popularity"]
             else:
                 by_id[g["id"]] = g
-    return list(by_id.values())
+    games = list(by_id.values())
+    # Most popular first across the whole catalog.
+    games.sort(key=lambda g: g.get("popularity", 1_000_000))
+    for i, g in enumerate(games):
+        g["popularity"] = i
+    return games
 
 
 def fetch_store_details(

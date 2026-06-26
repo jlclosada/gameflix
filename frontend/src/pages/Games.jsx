@@ -1,10 +1,16 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { api } from "../api.js";
-import GameTile from "../components/GameTile.jsx";
+import CatalogCard from "../components/CatalogCard.jsx";
 import { Icon } from "../components/Icons.jsx";
 
-const PAGE_SIZE = 36;
+const PAGE_SIZE = 48;
+
+const SORTS = [
+  { key: "popular", label: "Más populares" },
+  { key: "rating", label: "Mejor valorados" },
+  { key: "name", label: "A–Z" },
+];
 
 export default function Games() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -14,6 +20,7 @@ export default function Games() {
 
   const [search, setSearch] = useState("");
   const [genre, setGenre] = useState(searchParams.get("genre") || "");
+  const [sort, setSort] = useState("popular");
   const [page, setPage] = useState(0);
 
   const [loading, setLoading] = useState(true);
@@ -29,12 +36,12 @@ export default function Games() {
       .catch(() => {});
   }, []);
 
-  // Reset to first page whenever the filters change.
+  // Reset to first page whenever the filters change (debounced for search).
   useEffect(() => {
     if (debounce.current) clearTimeout(debounce.current);
     debounce.current = setTimeout(() => setPage(0), 300);
     return () => clearTimeout(debounce.current);
-  }, [search, genre]);
+  }, [search, genre, sort]);
 
   // Keep the genre in the URL so detail-page genre links work and are shareable.
   useEffect(() => {
@@ -53,7 +60,7 @@ export default function Games() {
     setLoading(true);
     setError("");
     api
-      .getGames({ search, genre, limit: PAGE_SIZE, offset: page * PAGE_SIZE })
+      .getGames({ search, genre, sort, limit: PAGE_SIZE, offset: page * PAGE_SIZE })
       .then((d) => {
         if (!active) return;
         setGames(d.games || []);
@@ -65,7 +72,7 @@ export default function Games() {
       active = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, genre, page]);
+  }, [search, genre, sort, page]);
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
@@ -74,42 +81,85 @@ export default function Games() {
     topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
+  // Build a compact list of page buttons around the current page.
+  const pageButtons = () => {
+    const out = [];
+    const add = (p) => out.push(p);
+    const window = 1;
+    const from = Math.max(0, page - window);
+    const to = Math.min(totalPages - 1, page + window);
+    if (from > 0) {
+      add(0);
+      if (from > 1) add("…");
+    }
+    for (let p = from; p <= to; p++) add(p);
+    if (to < totalPages - 1) {
+      if (to < totalPages - 2) add("…");
+      add(totalPages - 1);
+    }
+    return out;
+  };
+
   return (
     <div ref={topRef}>
-      <div className="page-head">
-        <div>
-          <h1>Explora el catálogo</h1>
+      <div className="catalog-hero">
+        <div className="catalog-hero-text">
+          <span className="eyebrow">
+            <Icon.Sparkles width={14} height={14} /> Catálogo
+          </span>
+          <h1>Explora miles de juegos</h1>
           <p className="sub">
             {total.toLocaleString("es-ES")} juegos listos para tus tier lists.
           </p>
         </div>
       </div>
 
-      <div className="toolbar">
+      <div className="toolbar catalog-toolbar">
         <div className="search" style={{ flex: 1, minWidth: 220 }}>
           <Icon.Search />
           <input
-            placeholder="Buscar juegos..."
+            placeholder="Buscar juegos por nombre..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <select value={genre} onChange={(e) => setGenre(e.target.value)}>
-          <option value="">Todos los géneros</option>
-          {genres.map((g) => (
-            <option key={g} value={g}>
-              {g}
+        <select
+          className="sort-select"
+          value={sort}
+          onChange={(e) => setSort(e.target.value)}
+        >
+          {SORTS.map((s) => (
+            <option key={s.key} value={s.key}>
+              {s.label}
             </option>
           ))}
         </select>
       </div>
 
+      <div className="genre-chips">
+        <button
+          className={`chip${genre === "" ? " active" : ""}`}
+          onClick={() => setGenre("")}
+        >
+          Todos
+        </button>
+        {genres.map((g) => (
+          <button
+            key={g}
+            className={`chip${genre === g ? " active" : ""}`}
+            onClick={() => setGenre(genre === g ? "" : g)}
+          >
+            {g}
+          </button>
+        ))}
+      </div>
+
       {error && <div className="error">{error}</div>}
 
       {loading ? (
-        <div className="game-grid">
+        <div className="catalog-grid">
           {Array.from({ length: 18 }).map((_, i) => (
-            <div className="skeleton tile" key={i} />
+            <div className="skeleton catalog-skel" key={i} />
           ))}
         </div>
       ) : games.length === 0 ? (
@@ -118,11 +168,9 @@ export default function Games() {
           <p>No se encontraron juegos con esos filtros.</p>
         </div>
       ) : (
-        <div className="game-grid">
+        <div className="catalog-grid">
           {games.map((g) => (
-            <Link key={g.id} to={`/game/${g.id}`} className="tile-link">
-              <GameTile game={g} draggable={false} className="lg" />
-            </Link>
+            <CatalogCard key={g.id} game={g} />
           ))}
         </div>
       )}
@@ -134,17 +182,29 @@ export default function Games() {
             disabled={page === 0}
             onClick={() => goPage(page - 1)}
           >
-            ← Anterior
+            ←
           </button>
-          <span className="page-info">
-            Página {page + 1} de {totalPages}
-          </span>
+          {pageButtons().map((p, i) =>
+            p === "…" ? (
+              <span key={`e${i}`} className="page-ellipsis">
+                …
+              </span>
+            ) : (
+              <button
+                key={p}
+                className={`page-btn${p === page ? " active" : ""}`}
+                onClick={() => goPage(p)}
+              >
+                {p + 1}
+              </button>
+            ),
+          )}
           <button
             className="secondary btn-sm"
             disabled={page >= totalPages - 1}
             onClick={() => goPage(page + 1)}
           >
-            Siguiente →
+            →
           </button>
         </div>
       )}

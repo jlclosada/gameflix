@@ -4,7 +4,7 @@ import { query } from '../db.js';
 
 export const gamesRouter = Router();
 
-// GET /api/games?search=&genre=&limit=&offset=
+// GET /api/games?search=&genre=&limit=&offset=&sort=
 // Returns games to populate the tier list pool.
 gamesRouter.get('/', async (req, res, next) => {
   try {
@@ -12,6 +12,14 @@ gamesRouter.get('/', async (req, res, next) => {
     const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
     const search = (req.query.search || '').trim();
     const genre = (req.query.genre || '').trim();
+
+    // Whitelisted sort orders (avoids SQL injection on ORDER BY).
+    const SORTS = {
+      popular: 'popularity ASC NULLS LAST, rating DESC NULLS LAST, name ASC',
+      name: 'name ASC',
+      rating: 'rating DESC NULLS LAST, popularity ASC NULLS LAST, name ASC',
+    };
+    const orderBy = SORTS[req.query.sort] || SORTS.popular;
 
     const conditions = [];
     const params = [];
@@ -27,12 +35,23 @@ gamesRouter.get('/', async (req, res, next) => {
 
     const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
-    // Total count for pagination (uses the same filters, without limit/offset).
-    const countResult = await query(
-      `SELECT COUNT(*)::int AS total FROM games ${where}`,
-      params,
-    );
-    const total = countResult.rows[0].total;
+    // Total for pagination. When there are no filters (the common "browse all"
+    // case) a real COUNT(*) scans the whole table, so we use Postgres' fast row
+    // estimate instead. Filtered counts are cheap thanks to the trigram/GIN
+    // indexes.
+    let total;
+    if (!conditions.length) {
+      const est = await query(
+        `SELECT reltuples::bigint AS total FROM pg_class WHERE relname = 'games'`,
+      );
+      total = Number(est.rows[0]?.total) || 0;
+    } else {
+      const countResult = await query(
+        `SELECT COUNT(*)::int AS total FROM games ${where}`,
+        params,
+      );
+      total = countResult.rows[0].total;
+    }
 
     params.push(limit);
     const limitIdx = params.length;
@@ -43,7 +62,7 @@ gamesRouter.get('/', async (req, res, next) => {
       `SELECT id, name, image_url, released, rating, metacritic, genres, platforms
        FROM games
        ${where}
-       ORDER BY rating DESC NULLS LAST, name ASC
+       ORDER BY ${orderBy}
        LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
       params,
     );
