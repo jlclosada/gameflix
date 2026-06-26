@@ -4,7 +4,7 @@
 [build]
   base = "frontend"
   command = "npm install && npm run build"
-  publish = "frontend/dist"
+  publish = "dist"
 
 # Single Page App: send every route to index.html so client-side routing works.
 [[redirects]]
