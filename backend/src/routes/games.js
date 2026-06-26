@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { optionalAuth, requireAuth } from '../auth.js';
 import { query } from '../db.js';
 
 export const gamesRouter = Router();
@@ -60,6 +61,128 @@ gamesRouter.get('/genres', async (_req, res, next) => {
       `SELECT DISTINCT unnest(genres) AS genre FROM games ORDER BY genre`,
     );
     res.json({ genres: rows.map((r) => r.genre).filter(Boolean) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/games/:id -> full game detail with review summary and reviews.
+// When authenticated, also returns the caller's own review (if any).
+gamesRouter.get('/:id', optionalAuth, async (req, res, next) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) {
+      return res.status(400).json({ error: 'Invalid id.' });
+    }
+
+    const gameResult = await query(
+      `SELECT id, steam_id, slug, name, released, image_url, rating, metacritic, genres, platforms
+       FROM games WHERE id = $1`,
+      [id],
+    );
+    if (gameResult.rowCount === 0) {
+      return res.status(404).json({ error: 'Game not found.' });
+    }
+
+    const summaryResult = await query(
+      `SELECT COUNT(*)::int AS count, ROUND(AVG(rating)::numeric, 2) AS average
+       FROM reviews WHERE game_id = $1`,
+      [id],
+    );
+
+    const reviewsResult = await query(
+      `SELECT r.id, r.rating, r.comment, r.created_at, r.updated_at,
+              u.id AS user_id, u.username
+       FROM reviews r
+       JOIN users u ON u.id = r.user_id
+       WHERE r.game_id = $1
+       ORDER BY r.updated_at DESC
+       LIMIT 100`,
+      [id],
+    );
+
+    // Times this game was placed in published tier lists (popularity signal).
+    const placementResult = await query(
+      `SELECT COUNT(*)::int AS placements FROM placements WHERE game_id = $1`,
+      [id],
+    );
+
+    let myReview = null;
+    if (req.user?.id) {
+      const mine = reviewsResult.rows.find((r) => r.user_id === req.user.id);
+      myReview = mine || null;
+    }
+
+    res.json({
+      game: gameResult.rows[0],
+      summary: {
+        count: summaryResult.rows[0].count,
+        average: summaryResult.rows[0].average
+          ? Number(summaryResult.rows[0].average)
+          : null,
+      },
+      placements: placementResult.rows[0].placements,
+      reviews: reviewsResult.rows,
+      myReview,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/games/:id/reviews -> create or update the caller's review.
+// Body: { rating: 1-5, comment?: string }
+gamesRouter.post('/:id/reviews', requireAuth, async (req, res, next) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) {
+      return res.status(400).json({ error: 'Invalid id.' });
+    }
+    const rating = parseInt(req.body?.rating, 10);
+    if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+      return res.status(400).json({ error: 'Rating must be between 1 and 5.' });
+    }
+    const comment =
+      typeof req.body?.comment === 'string'
+        ? req.body.comment.trim().slice(0, 2000)
+        : null;
+
+    const exists = await query(`SELECT 1 FROM games WHERE id = $1`, [id]);
+    if (exists.rowCount === 0) {
+      return res.status(404).json({ error: 'Game not found.' });
+    }
+
+    const { rows } = await query(
+      `INSERT INTO reviews (game_id, user_id, rating, comment)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (game_id, user_id) DO UPDATE SET
+         rating = EXCLUDED.rating,
+         comment = EXCLUDED.comment,
+         updated_at = now()
+       RETURNING id, rating, comment, created_at, updated_at`,
+      [id, req.user.id, rating, comment || null],
+    );
+
+    res.status(201).json({
+      review: { ...rows[0], user_id: req.user.id, username: req.user.username },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// DELETE /api/games/:id/reviews -> remove the caller's review.
+gamesRouter.delete('/:id/reviews', requireAuth, async (req, res, next) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) {
+      return res.status(400).json({ error: 'Invalid id.' });
+    }
+    await query(`DELETE FROM reviews WHERE game_id = $1 AND user_id = $2`, [
+      id,
+      req.user.id,
+    ]);
+    res.status(204).end();
   } catch (err) {
     next(err);
   }

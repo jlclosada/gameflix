@@ -51,7 +51,12 @@ export default function App() {
         <div className="nav-auth">
           {loading ? null : user ? (
             <>
-              <div className="badge accent" title={user.email}>
+              <Link
+                to="/profile"
+                className="badge accent"
+                title="Tu perfil"
+                style={{ textDecoration: "none" }}
+              >
                 <span
                   className="avatar"
                   style={{ width: 20, height: 20, fontSize: "0.65rem" }}
@@ -59,7 +64,7 @@ export default function App() {
                   {user.username.slice(0, 1).toUpperCase()}
                 </span>
                 {user.username}
-              </div>
+              </Link>
               <button
                 className="ghost btn-sm"
                 onClick={logout}
@@ -85,10 +90,12 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Home onAuth={openAuth} />} />
           <Route path="/games" element={<Games />} />
+          <Route path="/game/:id" element={<GameDetail onAuth={openAuth} />} />
           <Route path="/create" element={<Editor onAuth={openAuth} />} />
           <Route path="/browse" element={<Browse />} />
           <Route path="/tierlist/:id" element={<ViewTierlist />} />
           <Route path="/stats" element={<Stats />} />
+          <Route path="/profile" element={<Profile onAuth={openAuth} />} />
         </Routes>
       </main>
 

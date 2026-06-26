@@ -159,13 +159,16 @@ def fetch_store_search(
     session: requests.Session,
     max_games: int,
     sort_by: str = "",
+    tags: str = "",
+    assign_genres: list[str] | None = None,
 ) -> list[dict[str, Any]]:
     """Bulk-fetch thousands of games from the Steam store search endpoint.
 
     Uses the public "infinite scroll" JSON results, filtered to category Games
     (``category1=998``). No per-game API calls are made, so this is fast and not
     affected by the appdetails rate limit. Cover art comes straight from the
-    Steam CDN. Genres/metacritic are left empty (use the enrich path for those).
+    Steam CDN. When ``tags`` (a Steam tag id) is provided, results are filtered
+    to that tag and ``assign_genres`` is stored on each game.
     """
     games: list[dict[str, Any]] = []
     seen: set[int] = set()
@@ -185,6 +188,8 @@ def fetch_store_search(
         }
         if sort_by:
             params["sort_by"] = sort_by
+        if tags:
+            params["tags"] = tags
 
         try:
             payload = request_json(session, STORE_SEARCH_URL, params)
@@ -229,7 +234,7 @@ def fetch_store_search(
                     "background_image": f"{CDN_BASE}/{appid}/library_600x900_2x.jpg",
                     "rating": None,
                     "metacritic": None,
-                    "genres": [],
+                    "genres": list(assign_genres) if assign_genres else [],
                     "platforms": [],
                 }
             )
@@ -246,6 +251,56 @@ def fetch_store_search(
         time.sleep(0.4)
 
     return games
+
+
+# Display genre name -> Steam store tag id. Used by --by-category to build a
+# catalog where every game is tagged with its category (for the editor
+# templates). Ordered by popularity for tier lists.
+CATEGORY_TAGS: dict[str, int] = {
+    "Action": 19,
+    "Adventure": 21,
+    "RPG": 122,
+    "Strategy": 9,
+    "Simulation": 599,
+    "Indie": 492,
+    "Casual": 597,
+    "Sports": 701,
+    "Racing": 699,
+    "Massively Multiplayer": 128,
+    "Horror": 1667,
+    "Shooter": 1774,
+    "Puzzle": 1664,
+    "Open World": 1695,
+    "Fighting": 1743,
+}
+
+
+def fetch_by_category(
+    session: requests.Session,
+    per_category: int,
+) -> list[dict[str, Any]]:
+    """Build a catalog tagged by genre, fetching the most-reviewed games for
+    each category tag. A game may appear in several categories; genres are
+    merged so it keeps all matching tags."""
+    by_id: dict[int, dict[str, Any]] = {}
+    for genre, tag_id in CATEGORY_TAGS.items():
+        print(f"\n=== Category '{genre}' (tag {tag_id}) ===")
+        rows = fetch_store_search(
+            session,
+            per_category,
+            sort_by="Reviews_DESC",
+            tags=str(tag_id),
+            assign_genres=[genre],
+        )
+        for g in rows:
+            existing = by_id.get(g["id"])
+            if existing:
+                for gn in g["genres"]:
+                    if gn not in existing["genres"]:
+                        existing["genres"].append(gn)
+            else:
+                by_id[g["id"]] = g
+    return list(by_id.values())
 
 
 def fetch_store_details(
@@ -459,6 +514,16 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--by-category",
+        action="store_true",
+        help=(
+            "Build a catalog tagged by genre. Fetches the most-reviewed games "
+            "for each category (Action, RPG, Strategy...). Use --limit as the "
+            "number of games PER category. Every game keeps its genre tags, "
+            "which powers the editor templates."
+        ),
+    )
+    parser.add_argument(
         "--workers", type=int, default=8, help="Concurrent image downloads."
     )
     parser.add_argument(
@@ -486,7 +551,13 @@ def main(argv: list[str] | None = None) -> int:
     images_dir = output_dir / "images"
     manifest_path = output_dir / "games.json"
 
-    if args.bulk:
+    if args.by_category:
+        print(
+            f"By-category mode: fetching up to {args.limit} games per category..."
+        )
+        games = fetch_by_category(session, args.limit)
+        print(f"\nCollected {len(games)} unique games across all categories.")
+    elif args.bulk:
         print(f"Bulk mode: fetching up to {args.limit} games from Steam search...")
         games = fetch_store_search(session, args.limit, args.sort)
         print(f"\nCollected {len(games)} games from store search.")

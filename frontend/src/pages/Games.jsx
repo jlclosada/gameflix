@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../api.js";
 import GameTile from "../components/GameTile.jsx";
 import { Icon } from "../components/Icons.jsx";
@@ -6,12 +7,13 @@ import { Icon } from "../components/Icons.jsx";
 const PAGE_SIZE = 36;
 
 export default function Games() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [games, setGames] = useState([]);
   const [total, setTotal] = useState(0);
   const [genres, setGenres] = useState([]);
 
   const [search, setSearch] = useState("");
-  const [genre, setGenre] = useState("");
+  const [genre, setGenre] = useState(searchParams.get("genre") || "");
   const [page, setPage] = useState(0);
 
   const [loading, setLoading] = useState(true);
@@ -33,6 +35,18 @@ export default function Games() {
     debounce.current = setTimeout(() => setPage(0), 300);
     return () => clearTimeout(debounce.current);
   }, [search, genre]);
+
+  // Keep the genre in the URL so detail-page genre links work and are shareable.
+  useEffect(() => {
+    const current = searchParams.get("genre") || "";
+    if (genre !== current) {
+      const next = new URLSearchParams(searchParams);
+      if (genre) next.set("genre", genre);
+      else next.delete("genre");
+      setSearchParams(next, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [genre]);
 
   useEffect(() => {
     let active = true;
@@ -106,7 +120,9 @@ export default function Games() {
       ) : (
         <div className="game-grid">
           {games.map((g) => (
-            <GameTile key={g.id} game={g} draggable={false} className="lg" />
+            <Link key={g.id} to={`/game/${g.id}`} className="tile-link">
+              <GameTile game={g} draggable={false} className="lg" />
+            </Link>
           ))}
         </div>
       )}

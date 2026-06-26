@@ -21,9 +21,29 @@ const NEW_TIER_COLORS = [
   "linear-gradient(135deg,#8b94a8,#565d70)",
 ];
 
+// Curated templates. Each loads only games tagged with its genre, so the pool
+// stays small and fast. "all" loads the most-reviewed games across the board.
+const TEMPLATES = [
+  { key: "Action", label: "Acción", emoji: "💥" },
+  { key: "Adventure", label: "Aventura", emoji: "🗺️" },
+  { key: "RPG", label: "RPG", emoji: "⚔️" },
+  { key: "Strategy", label: "Estrategia", emoji: "♟️" },
+  { key: "Simulation", label: "Simulación", emoji: "🚜" },
+  { key: "Indie", label: "Indie", emoji: "🎨" },
+  { key: "Shooter", label: "Shooter", emoji: "🔫" },
+  { key: "Horror", label: "Terror", emoji: "👻" },
+  { key: "Sports", label: "Deportes", emoji: "⚽" },
+  { key: "Racing", label: "Carreras", emoji: "🏎️" },
+  { key: "Puzzle", label: "Puzzle", emoji: "🧩" },
+  { key: "Massively Multiplayer", label: "Multijugador", emoji: "🌐" },
+];
+
 export default function Editor({ onAuth }) {
   const navigate = useNavigate();
   const { user } = useAuth();
+
+  // null = no template chosen yet (show the picker).
+  const [template, setTemplate] = useState(null);
 
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState("");
@@ -56,13 +76,22 @@ export default function Editor({ onAuth }) {
       .catch(() => {});
   }, []);
 
-  const loadGames = async () => {
+  // Pick a template: set the genre/category and load that subset of games.
+  const chooseTemplate = (tpl) => {
+    setTemplate(tpl);
+    const g = tpl.key === "all" ? "" : tpl.key;
+    setGenreFilter(g);
+    if (tpl.key !== "all") setCategory(tpl.label);
+    loadGames(g);
+  };
+
+  const loadGames = async (genreOverride) => {
     setLoading(true);
     setError("");
     try {
       const data = await api.getGames({
         search,
-        genre: genreFilter,
+        genre: genreOverride !== undefined ? genreOverride : genreFilter,
         limit: 80,
       });
       setPool(data.games || []);
@@ -72,11 +101,6 @@ export default function Editor({ onAuth }) {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    loadGames();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   // ---- drag & drop ----
   const handleDragStart = (e, game) => {
@@ -235,13 +259,62 @@ export default function Editor({ onAuth }) {
     }
   };
 
+  // Step 1: choose a template. Until then, no games are loaded (faster).
+  if (!template) {
+    return (
+      <div>
+        <div className="page-head">
+          <div>
+            <h1>Elige una plantilla</h1>
+            <p className="sub">
+              Selecciona una categoría para cargar solo esos juegos. Tu tier
+              list irá mucho más rápida.
+            </p>
+          </div>
+        </div>
+
+        <div className="template-grid">
+          {TEMPLATES.map((tpl) => (
+            <button
+              key={tpl.key}
+              className="template-card"
+              onClick={() => chooseTemplate(tpl)}
+            >
+              <span className="tpl-emoji">{tpl.emoji}</span>
+              <span className="tpl-label">{tpl.label}</span>
+            </button>
+          ))}
+          <button
+            className="template-card all"
+            onClick={() => chooseTemplate({ key: "all", label: "" })}
+          >
+            <span className="tpl-emoji">🎮</span>
+            <span className="tpl-label">Todos</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       <div className="page-head">
         <div>
           <h1>Crear tier list</h1>
           <p className="sub">
-            Arrastra juegos del catálogo a cada tier y publica tu ranking.
+            Plantilla:{" "}
+            <strong>{template.key === "all" ? "Todos" : template.label}</strong>
+            {" · "}
+            <button
+              className="ghost btn-sm"
+              style={{ padding: "2px 8px" }}
+              onClick={() => {
+                setTemplate(null);
+                setPool([]);
+              }}
+            >
+              Cambiar
+            </button>
           </p>
         </div>
         {user ? (

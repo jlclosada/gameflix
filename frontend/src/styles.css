@@ -1262,6 +1262,211 @@ select option {
   font-size: 0.9rem;
 }
 
+/* Star rating */
+.stars {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.stars .star {
+  padding: 0;
+  background: none;
+  box-shadow: none;
+  color: rgba(255, 255, 255, 0.18);
+  transition:
+    transform 0.15s var(--ease-spring),
+    color 0.15s var(--ease);
+  display: grid;
+  place-items: center;
+}
+.stars .star::after {
+  display: none;
+}
+.stars .star.filled {
+  color: #ffd25c;
+}
+.stars.interactive .star {
+  cursor: pointer;
+}
+.stars.interactive .star:hover {
+  transform: scale(1.2);
+}
+.stars .star:disabled {
+  opacity: 1;
+  cursor: default;
+}
+
+/* Tile link wrapper (Games grid -> detail) */
+.tile-link {
+  display: block;
+  border-radius: 12px;
+}
+.tile-link .game-tile {
+  cursor: pointer;
+}
+
+/* Game detail page */
+.game-detail {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 28px;
+  align-items: start;
+}
+@media (max-width: 720px) {
+  .game-detail {
+    grid-template-columns: 1fr;
+  }
+}
+.gd-cover {
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  background: #0b0e16;
+  aspect-ratio: 2 / 3;
+}
+.gd-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+.gd-cover-fallback {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 20px;
+  font-weight: 700;
+  background: var(--grad-brand-soft);
+}
+.gd-info h1 {
+  font-size: clamp(1.8rem, 4vw, 2.8rem);
+  letter-spacing: -0.025em;
+  margin: 0 0 14px;
+}
+.gd-meta,
+.gd-genres {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.gd-genres {
+  margin-top: 12px;
+}
+.gd-genres .badge {
+  transition: background 0.2s var(--ease);
+}
+.gd-genres .badge:hover {
+  background: var(--surface-3);
+}
+
+/* Review form + list */
+.review-form {
+  padding: 24px;
+  margin: 32px 0;
+}
+.review-form textarea {
+  background: var(--surface);
+}
+.review-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.review-item {
+  padding: 16px 18px;
+}
+.review-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.review-item .rv-name {
+  font-weight: 700;
+}
+.review-item .rv-date {
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+.review-item .rv-comment {
+  margin: 10px 0 0;
+  color: var(--text-soft);
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+.profile-rv {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  text-decoration: none;
+  transition:
+    border-color 0.25s var(--ease),
+    transform 0.25s var(--ease);
+}
+.profile-rv:hover {
+  border-color: var(--border-strong);
+  transform: translateX(4px);
+}
+.profile-rv .thumb {
+  width: 52px;
+  aspect-ratio: 2/3;
+  border-radius: 8px;
+  object-fit: contain;
+  background: #0b0e16;
+  flex-shrink: 0;
+}
+.profile-rv .rv-comment {
+  margin: 8px 0 0;
+}
+
+/* Template picker */
+.template-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 16px;
+}
+.template-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 28px 16px;
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  box-shadow: none;
+  transition:
+    transform 0.3s var(--ease-spring),
+    border-color 0.3s var(--ease),
+    background 0.3s var(--ease);
+  animation: fade-up 0.5s var(--ease) both;
+}
+.template-card::after {
+  display: none;
+}
+.template-card:hover {
+  transform: translateY(-5px);
+  border-color: rgba(124, 92, 255, 0.5);
+  background: var(--surface-2);
+}
+.template-card .tpl-emoji {
+  font-size: 2.4rem;
+  line-height: 1;
+}
+.template-card .tpl-label {
+  font-weight: 700;
+  font-size: 1.02rem;
+}
+.template-card.all {
+  background: var(--grad-brand-soft);
+  border-color: rgba(124, 92, 255, 0.35);
+}
+
 @media (max-width: 600px) {
   .nav a span {
     display: none;

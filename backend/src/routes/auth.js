@@ -110,3 +110,21 @@ authRouter.get('/me', requireAuth, async (req, res, next) => {
     next(err);
   }
 });
+
+// GET /api/auth/me/reviews -> the caller's reviews, with game info (profile).
+authRouter.get('/me/reviews', requireAuth, async (req, res, next) => {
+  try {
+    const { rows } = await query(
+      `SELECT r.id, r.rating, r.comment, r.created_at, r.updated_at,
+              g.id AS game_id, g.name AS game_name, g.image_url AS game_image
+       FROM reviews r
+       JOIN games g ON g.id = r.game_id
+       WHERE r.user_id = $1
+       ORDER BY r.updated_at DESC`,
+      [req.user.id],
+    );
+    res.json({ reviews: rows });
+  } catch (err) {
+    next(err);
+  }
+});

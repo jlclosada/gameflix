@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../api.js";
 import { Icon } from "../components/Icons.jsx";
 
@@ -11,15 +12,26 @@ function RankList({ items, valueKey, valueLabel }) {
       {items.map((g, i) => (
         <li className="rank-item" key={g.id}>
           <span className="rank-pos">{i + 1}</span>
-          {g.image_url ? (
-            <img className="thumb" src={g.image_url} alt={g.name} loading="lazy" />
-          ) : (
-            <span className="thumb" />
-          )}
-          <div className="grow">
-            <div className="nm">{g.name}</div>
-            <div className="sm">{g.appearances} apariciones</div>
-          </div>
+          <Link
+            to={`/game/${g.id}`}
+            style={{ display: "contents" }}
+            aria-label={g.name}
+          >
+            {g.image_url ? (
+              <img
+                className="thumb"
+                src={g.image_url}
+                alt={g.name}
+                loading="lazy"
+              />
+            ) : (
+              <span className="thumb" />
+            )}
+            <div className="grow">
+              <div className="nm">{g.name}</div>
+              <div className="sm">{g.appearances} apariciones</div>
+            </div>
+          </Link>
           {valueKey && (
             <span className="badge accent">
               {g[valueKey]} {valueLabel}

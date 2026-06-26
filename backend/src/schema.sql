@@ -59,3 +59,19 @@ CREATE TABLE IF NOT EXISTS placements (
 
 CREATE INDEX IF NOT EXISTS idx_placements_game ON placements (game_id);
 CREATE INDEX IF NOT EXISTS idx_placements_tierlist ON placements (tierlist_id);
+
+-- User reviews: one star rating (1-5) and optional comment per (user, game).
+CREATE TABLE IF NOT EXISTS reviews (
+  id          SERIAL PRIMARY KEY,
+  game_id     INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+  user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  rating      INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
+  comment     TEXT,
+  created_at  TIMESTAMPTZ DEFAULT now(),
+  updated_at  TIMESTAMPTZ DEFAULT now(),
+  UNIQUE (game_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_reviews_game ON reviews (game_id);
+CREATE INDEX IF NOT EXISTS idx_reviews_user ON reviews (user_id);
+

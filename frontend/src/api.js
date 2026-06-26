@@ -50,6 +50,7 @@ export const api = {
       body: JSON.stringify(payload),
     }),
   me: () => request(`/api/auth/me`),
+  myReviews: () => request(`/api/auth/me/reviews`),
 
   // Games
   getGames: ({ search = '', genre = '', limit = 60, offset = 0 } = {}) => {
@@ -59,6 +60,14 @@ export const api = {
     return request(`/api/games?${params.toString()}`);
   },
   getGenres: () => request(`/api/games/genres`),
+  getGame: (id) => request(`/api/games/${id}`),
+  saveReview: (id, payload) =>
+    request(`/api/games/${id}/reviews`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  deleteReview: (id) =>
+    request(`/api/games/${id}/reviews`, { method: 'DELETE' }),
 
   // Tier lists
   publishTierlist: (payload) =>
