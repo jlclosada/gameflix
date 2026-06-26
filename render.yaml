@@ -1,12 +1,7 @@
 # Render Blueprint for the GameTier app.
-# Deploys: PostgreSQL database + Node API + static React frontend.
+# Deploys: Node API + static React frontend on Render.
+# The PostgreSQL database is hosted for free on Supabase (no expiry).
 # Docs: https://render.com/docs/blueprint-spec
-
-databases:
-  - name: tierlist-db
-    plan: free
-    databaseName: tierlist
-    user: tierlist
 
 services:
   # Backend API
@@ -22,10 +17,11 @@ services:
     startCommand: npm run init-db && npm start
     healthCheckPath: /api/health
     envVars:
+      # Paste your Supabase connection string here in the Render dashboard.
+      # Supabase -> Project Settings -> Database -> Connection string (URI).
+      # Use the "Session pooler" / port 5432 URI.
       - key: DATABASE_URL
-        fromDatabase:
-          name: tierlist-db
-          property: connectionString
+        sync: false
       - key: PGSSL
         value: 'true'
       - key: CORS_ORIGIN

@@ -106,28 +106,49 @@ Para producción, configura `VITE_API_URL` con la URL del backend desplegado.
 
 ---
 
-## 4. Despliegue gratuito (Render + PostgreSQL)
+## 4. Despliegue gratuito (Render + Supabase)
 
-El archivo [`render.yaml`](render.yaml) define la base de datos, la API y el
-frontend como un único _Blueprint_.
+Coste **0€**: la API y el frontend van en **Render** (plan free) y la base de
+datos PostgreSQL en **Supabase** (gratis y sin caducidad). El archivo
+[`render.yaml`](render.yaml) define la API y el frontend como un _Blueprint_.
 
-1. Sube el repositorio a GitHub.
-2. En [Render](https://render.com): **New → Blueprint** y selecciona el repo.
-3. Render creará la base de datos, la API y el sitio estático.
-4. En el servicio `tierlist-web`, pon la variable `VITE_API_URL` con la URL de
-   `tierlist-api` (p. ej. `https://tierlist-api.onrender.com`) y vuelve a
-   desplegar.
-5. Carga los juegos en la base de datos de producción una vez:
+### 4.1. Base de datos en Supabase
 
-   ```bash
-   # con la DATABASE_URL externa de Render en tu .env local
-   cd backend && npm run seed
+1. Crea una cuenta en [supabase.com](https://supabase.com) y un nuevo proyecto
+   (elige una contraseña para la base de datos y guárdala).
+2. Ve a **Project Settings → Database → Connection string → URI**.
+3. Copia la cadena de **Session pooler** (puerto `5432`). Tendrá esta forma:
+
+   ```
+   postgresql://postgres.xxxxx:[YOUR-PASSWORD]@aws-0-eu-...pooler.supabase.com:5432/postgres
    ```
 
-> El plan gratuito de Render duerme los servicios tras inactividad; el primer
-> acceso puede tardar unos segundos.
+   Sustituye `[YOUR-PASSWORD]` por la contraseña de tu proyecto. Esta es tu
+   `DATABASE_URL`.
 
-### Alternativas gratuitas
+### 4.2. Backend + frontend en Render
 
-- **Base de datos**: Supabase o Neon (Postgres gratis) → usa su `DATABASE_URL`.
+1. En [Render](https://render.com): **New → Blueprint** y selecciona el repo.
+2. Render leerá `render.yaml` y creará `tierlist-api` y `tierlist-web`.
+3. En `tierlist-api` → **Environment**, pega tu `DATABASE_URL` de Supabase
+   (la variable ya aparece como `sync: false`). Deja `PGSSL=true`.
+4. Cuando la API esté _Live_, en `tierlist-web` → **Environment** pon
+   `VITE_API_URL` con la URL de la API (p. ej.
+   `https://tierlist-api.onrender.com`) y vuelve a desplegar el frontend.
+
+### 4.3. Cargar los juegos en producción (una vez)
+
+```bash
+cd downloader && python steam_downloader.py --limit 200   # genera games.json
+cd ../backend
+DATABASE_URL="<TU_DATABASE_URL_DE_SUPABASE>" PGSSL=true npm run seed
+```
+
+> El plan gratuito de Render duerme los servicios tras ~15 min de inactividad;
+> el primer acceso luego tarda unos segundos en despertar. Supabase no caduca.
+
+### Alternativas
+
+- **Base de datos**: [Neon](https://neon.tech) también ofrece Postgres gratis
+  sin caducidad → usa su `DATABASE_URL` igual que con Supabase.
 - **Frontend**: Vercel o Netlify (`build` = `npm run build`, salida = `dist`).
