@@ -5,8 +5,10 @@ import { Icon } from "./components/Icons.jsx";
 import { useAuth } from "./context/AuthContext.jsx";
 import Browse from "./pages/Browse.jsx";
 import Editor from "./pages/Editor.jsx";
+import GameDetail from "./pages/GameDetail.jsx";
 import Games from "./pages/Games.jsx";
 import Home from "./pages/Home.jsx";
+import Profile from "./pages/Profile.jsx";
 import Stats from "./pages/Stats.jsx";
 import ViewTierlist from "./pages/ViewTierlist.jsx";
 
