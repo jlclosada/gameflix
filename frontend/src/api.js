@@ -2,11 +2,25 @@
 // In production set VITE_API_URL to your deployed backend URL.
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
+const TOKEN_KEY = 'gametier_token';
+
+export function getToken() {
+  return localStorage.getItem(TOKEN_KEY);
+}
+export function setToken(token) {
+  if (token) localStorage.setItem(TOKEN_KEY, token);
+  else localStorage.removeItem(TOKEN_KEY);
+}
+
 async function request(path, options = {}) {
-  const res = await fetch(`${API_BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
-    ...options,
-  });
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(options.headers || {}),
+  };
+  const token = getToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
   if (!res.ok) {
     let message = `Request failed (${res.status})`;
     try {
@@ -15,12 +29,29 @@ async function request(path, options = {}) {
     } catch {
       // ignore JSON parse errors
     }
-    throw new Error(message);
+    const err = new Error(message);
+    err.status = res.status;
+    throw err;
   }
+  if (res.status === 204) return null;
   return res.json();
 }
 
 export const api = {
+  // Auth
+  register: (payload) =>
+    request(`/api/auth/register`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  login: (payload) =>
+    request(`/api/auth/login`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  me: () => request(`/api/auth/me`),
+
+  // Games
   getGames: ({ search = '', genre = '', limit = 60, offset = 0 } = {}) => {
     const params = new URLSearchParams({ limit, offset });
     if (search) params.set('search', search);
@@ -28,6 +59,8 @@ export const api = {
     return request(`/api/games?${params.toString()}`);
   },
   getGenres: () => request(`/api/games/genres`),
+
+  // Tier lists
   publishTierlist: (payload) =>
     request(`/api/tierlists`, {
       method: 'POST',
@@ -39,5 +72,7 @@ export const api = {
     return request(`/api/tierlists?${params.toString()}`);
   },
   getTierlist: (id) => request(`/api/tierlists/${id}`),
+
+  // Stats
   getStats: () => request(`/api/stats`),
 };

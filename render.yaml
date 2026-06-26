@@ -25,6 +25,10 @@ services:
         sync: false
       - key: PGSSL
         value: 'true'
+      # Secret used to sign user session tokens (JWT).
+      # Render generates a strong random value automatically.
+      - key: JWT_SECRET
+        generateValue: true
       # Set this to your Netlify site URL once deployed, e.g.
       # https://gameflix.netlify.app  (comma-separated for multiple origins).
       - key: CORS_ORIGIN

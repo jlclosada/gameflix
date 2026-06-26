@@ -26,6 +26,13 @@ gamesRouter.get('/', async (req, res, next) => {
 
     const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
+    // Total count for pagination (uses the same filters, without limit/offset).
+    const countResult = await query(
+      `SELECT COUNT(*)::int AS total FROM games ${where}`,
+      params,
+    );
+    const total = countResult.rows[0].total;
+
     params.push(limit);
     const limitIdx = params.length;
     params.push(offset);
@@ -40,7 +47,7 @@ gamesRouter.get('/', async (req, res, next) => {
       params,
     );
 
-    res.json({ games: rows, limit, offset });
+    res.json({ games: rows, total, limit, offset });
   } catch (err) {
     next(err);
   }

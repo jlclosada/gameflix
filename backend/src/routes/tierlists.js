@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { optionalAuth } from '../auth.js';
 import { pool, query } from '../db.js';
 
 export const tierlistsRouter = Router();
@@ -12,10 +13,13 @@ function tierRank(index, totalTiers) {
 
 // POST /api/tierlists  -> publish a tier list
 // Body: { title, author, category, tiers: [{ label, color, gameIds: [] }] }
-tierlistsRouter.post('/', async (req, res, next) => {
+tierlistsRouter.post('/', optionalAuth, async (req, res, next) => {
   const client = await pool.connect();
   try {
-    const { title, author, category, tiers } = req.body || {};
+    const { title, category, tiers } = req.body || {};
+    // If logged in, the author is the account username; otherwise free text.
+    const author = req.user?.username || req.body?.author || 'Anonymous';
+    const userId = req.user?.id || null;
 
     if (!title || typeof title !== 'string') {
       return res
@@ -40,12 +44,13 @@ tierlistsRouter.post('/', async (req, res, next) => {
     await client.query('BEGIN');
 
     const insertList = await client.query(
-      `INSERT INTO tierlists (title, author, category, tiers)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO tierlists (title, author, user_id, category, tiers)
+       VALUES ($1, $2, $3, $4, $5)
        RETURNING id, created_at`,
       [
         title.trim().slice(0, 200),
-        (author || 'Anonymous').trim().slice(0, 80),
+        String(author).trim().slice(0, 80),
+        userId,
         (category || null) && category.trim().slice(0, 80),
         JSON.stringify(tiers),
       ],
@@ -98,7 +103,7 @@ tierlistsRouter.get('/', async (req, res, next) => {
     let where = '';
     if (category) {
       params.push(category);
-      where = `WHERE category = $${params.length}`;
+      where = `WHERE t.category = $${params.length}`;
     }
     params.push(limit);
     const limitIdx = params.length;
@@ -106,11 +111,23 @@ tierlistsRouter.get('/', async (req, res, next) => {
     const offsetIdx = params.length;
 
     const { rows } = await query(
-      `SELECT id, title, author, category, created_at, views,
-              jsonb_array_length(tiers) AS tier_count
-       FROM tierlists
+      `SELECT t.id, t.title, t.author, t.category, t.created_at, t.views,
+              jsonb_array_length(t.tiers) AS tier_count,
+              COALESCE(p.previews, '{}') AS previews
+       FROM tierlists t
+       LEFT JOIN LATERAL (
+         SELECT array_agg(image_url ORDER BY ord) AS previews
+         FROM (
+           SELECT g.image_url, pl.tier_rank, pl.position,
+                  row_number() OVER (ORDER BY pl.tier_rank DESC, pl.position ASC) AS ord
+           FROM placements pl
+           JOIN games g ON g.id = pl.game_id
+           WHERE pl.tierlist_id = t.id AND g.image_url IS NOT NULL
+           LIMIT 5
+         ) sub
+       ) p ON TRUE
        ${where}
-       ORDER BY created_at DESC
+       ORDER BY t.created_at DESC
        LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
       params,
     );

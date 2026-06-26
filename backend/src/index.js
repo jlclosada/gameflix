@@ -1,6 +1,7 @@
 import cors from 'cors';
 import dotenv from 'dotenv';
 import express from 'express';
+import { authRouter } from './routes/auth.js';
 import { gamesRouter } from './routes/games.js';
 import { statsRouter } from './routes/stats.js';
 import { tierlistsRouter } from './routes/tierlists.js';
@@ -22,6 +23,7 @@ app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', time: new Date().toISOString() });
 });
 
+app.use('/api/auth', authRouter);
 app.use('/api/games', gamesRouter);
 app.use('/api/tierlists', tierlistsRouter);
 app.use('/api/stats', statsRouter);

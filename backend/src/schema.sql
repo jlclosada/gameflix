@@ -15,20 +15,36 @@ CREATE TABLE IF NOT EXISTS games (
 
 CREATE INDEX IF NOT EXISTS idx_games_name ON games (lower(name));
 
+-- Registered users. Passwords are stored as bcrypt hashes.
+CREATE TABLE IF NOT EXISTS users (
+  id            SERIAL PRIMARY KEY,
+  username      TEXT UNIQUE NOT NULL,
+  email         TEXT UNIQUE NOT NULL,
+  password_hash TEXT NOT NULL,
+  created_at    TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_users_username ON users (lower(username));
+
 -- A published tier list. The full tier layout is stored as JSONB so the
 -- frontend can render it exactly as the author arranged it.
 CREATE TABLE IF NOT EXISTS tierlists (
   id          SERIAL PRIMARY KEY,
   title       TEXT NOT NULL,
   author      TEXT DEFAULT 'Anonymous',
+  user_id     INTEGER REFERENCES users(id) ON DELETE SET NULL,
   category    TEXT,
   tiers       JSONB NOT NULL,
   created_at  TIMESTAMPTZ DEFAULT now(),
   views       INTEGER DEFAULT 0
 );
 
+-- Add user_id to existing tierlists tables (no-op if it already exists).
+ALTER TABLE tierlists ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
+
 CREATE INDEX IF NOT EXISTS idx_tierlists_created ON tierlists (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_tierlists_category ON tierlists (category);
+CREATE INDEX IF NOT EXISTS idx_tierlists_user ON tierlists (user_id);
 
 -- One row per game placement in a published tier list. Used to compute
 -- statistics (which games are most loved, tier distributions, etc.).

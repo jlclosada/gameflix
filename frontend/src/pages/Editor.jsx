@@ -2,22 +2,29 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api.js";
 import GameTile from "../components/GameTile.jsx";
+import { useAuth } from "../context/AuthContext.jsx";
 
 const DEFAULT_TIERS = [
-  { label: "S", color: "#ff7f7f", games: [] },
-  { label: "A", color: "#ffbf7f", games: [] },
-  { label: "B", color: "#ffdf7f", games: [] },
-  { label: "C", color: "#ffff7f", games: [] },
-  { label: "D", color: "#bfff7f", games: [] },
+  { label: "S", color: "linear-gradient(135deg,#ff5f6d,#ff8a5c)", games: [] },
+  { label: "A", color: "linear-gradient(135deg,#ff9f43,#ffce54)", games: [] },
+  { label: "B", color: "linear-gradient(135deg,#ffd452,#c6f68d)", games: [] },
+  { label: "C", color: "linear-gradient(135deg,#7ee8a2,#22d3ee)", games: [] },
+  { label: "D", color: "linear-gradient(135deg,#5c8bff,#7c5cff)", games: [] },
 ];
 
-const NEW_TIER_COLORS = ["#7fffd4", "#7fbfff", "#bf7fff", "#ff7fdf", "#cccccc"];
+const NEW_TIER_COLORS = [
+  "linear-gradient(135deg,#22d3ee,#7c5cff)",
+  "linear-gradient(135deg,#f0abfc,#7c5cff)",
+  "linear-gradient(135deg,#ff8a5c,#ff5f6d)",
+  "linear-gradient(135deg,#c6f68d,#22d3ee)",
+  "linear-gradient(135deg,#8b94a8,#565d70)",
+];
 
-export default function Editor() {
+export default function Editor({ onAuth }) {
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const [title, setTitle] = useState("");
-  const [author, setAuthor] = useState("");
   const [category, setCategory] = useState("");
 
   const [tiers, setTiers] = useState(() =>
@@ -195,6 +202,11 @@ export default function Editor() {
   // ---- publish ----
   const publish = async () => {
     setError("");
+    if (!user) {
+      onAuth?.("login");
+      setError("Inicia sesión para publicar tu tier list.");
+      return;
+    }
     if (!title.trim()) {
       setError("Ponle un título a tu tier list.");
       return;
@@ -207,7 +219,6 @@ export default function Editor() {
     try {
       const payload = {
         title: title.trim(),
-        author: author.trim() || "Anonymous",
         category: category.trim() || null,
         tiers: tiers.map((t) => ({
           label: t.label,
@@ -225,18 +236,32 @@ export default function Editor() {
 
   return (
     <div>
-      <h1>Crear tier list</h1>
+      <div className="page-head">
+        <div>
+          <h1>Crear tier list</h1>
+          <p className="sub">
+            Arrastra juegos del catálogo a cada tier y publica tu ranking.
+          </p>
+        </div>
+        {user ? (
+          <div className="badge accent">
+            <span className="avatar" style={{ width: 20, height: 20, fontSize: "0.65rem" }}>
+              {user.username.slice(0, 1).toUpperCase()}
+            </span>
+            Publicarás como {user.username}
+          </div>
+        ) : (
+          <button className="secondary btn-sm" onClick={() => onAuth?.("login")}>
+            Inicia sesión para publicar
+          </button>
+        )}
+      </div>
 
       <div className="editor-meta">
         <input
           placeholder="Título (p. ej. Mejores RPGs de la historia)"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-        />
-        <input
-          placeholder="Tu nombre (opcional)"
-          value={author}
-          onChange={(e) => setAuthor(e.target.value)}
         />
         <input
           placeholder="Categoría (p. ej. RPG, Indie...)"
@@ -270,7 +295,8 @@ export default function Editor() {
 
       <div className="toolbar" style={{ marginTop: 12 }}>
         <button className="secondary" onClick={addTier}>
-          + Añadir tier
+          <Icon.Plus style={{ width: 16, height: 16 }} />
+          Añadir tier
         </button>
         <div className="spacer" />
         <button onClick={publish} disabled={publishing}>
@@ -285,14 +311,17 @@ export default function Editor() {
         onDragOver={allowDrop}
       >
         <div className="pool-header">
-          <strong>Catálogo de juegos</strong>
+          <h3>Catálogo de juegos</h3>
           <div className="spacer" />
-          <input
-            placeholder="Buscar..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && loadGames()}
-          />
+          <div className="search">
+            <Icon.Search />
+            <input
+              placeholder="Buscar..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && loadGames()}
+            />
+          </div>
           <select
             value={genreFilter}
             onChange={(e) => setGenreFilter(e.target.value)}
@@ -310,7 +339,10 @@ export default function Editor() {
         </div>
 
         {loading ? (
-          <div className="loading">Cargando juegos...</div>
+          <div className="loading">
+            <div className="spinner" />
+            Cargando juegos...
+          </div>
         ) : (
           <div className="pool-grid">
             {pool
@@ -355,15 +387,6 @@ function TierRow({
         <input
           value={tier.label}
           onChange={(e) => onLabelChange(index, e.target.value)}
-          style={{
-            background: "transparent",
-            border: "none",
-            color: "#1a1d24",
-            fontWeight: 800,
-            textAlign: "center",
-            width: "100%",
-            fontSize: "1.1rem",
-          }}
         />
       </div>
       <div

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api.js";
+import { Icon } from "../components/Icons.jsx";
 
 function RankList({ items, valueKey, valueLabel }) {
   if (!items || items.length === 0) {
@@ -10,15 +11,17 @@ function RankList({ items, valueKey, valueLabel }) {
       {items.map((g, i) => (
         <li className="rank-item" key={g.id}>
           <span className="rank-pos">{i + 1}</span>
-          {g.image_url && <img src={g.image_url} alt={g.name} loading="lazy" />}
+          {g.image_url ? (
+            <img className="thumb" src={g.image_url} alt={g.name} loading="lazy" />
+          ) : (
+            <span className="thumb" />
+          )}
           <div className="grow">
-            <div>{g.name}</div>
-            <div className="muted" style={{ fontSize: "0.8rem" }}>
-              {g.appearances} apariciones
-            </div>
+            <div className="nm">{g.name}</div>
+            <div className="sm">{g.appearances} apariciones</div>
           </div>
           {valueKey && (
-            <span className="badge">
+            <span className="badge accent">
               {g[valueKey]} {valueLabel}
             </span>
           )}
@@ -41,7 +44,13 @@ export default function Stats() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div className="loading">Calculando estadísticas...</div>;
+  if (loading)
+    return (
+      <div className="loading">
+        <div className="spinner" />
+        Calculando estadísticas...
+      </div>
+    );
   if (error) return <div className="error">{error}</div>;
   if (!stats) return null;
 
@@ -52,7 +61,14 @@ export default function Stats() {
 
   return (
     <div>
-      <h1>Estadísticas de la comunidad</h1>
+      <div className="page-head">
+        <div>
+          <h1>Estadísticas de la comunidad</h1>
+          <p className="sub">
+            Lo que revela cada tier list publicada sobre tus juegos favoritos.
+          </p>
+        </div>
+      </div>
 
       <div className="stat-grid">
         <div className="stat-box">
@@ -71,22 +87,27 @@ export default function Stats() {
 
       <div className="two-col">
         <div>
-          <h2 className="section-title">🏆 Más queridos</h2>
+          <h2 className="section-title">
+            <Icon.Trophy style={{ width: 22, height: 22, color: "#ffd25c" }} />
+            Más queridos
+          </h2>
           <p className="muted">Mayor puntuación media de tier (0-100).</p>
-          <RankList
-            items={stats.mostLoved}
-            valueKey="avg_rank"
-            valueLabel="pts"
-          />
+          <RankList items={stats.mostLoved} valueKey="avg_rank" valueLabel="pts" />
         </div>
         <div>
-          <h2 className="section-title">🔥 Más populares</h2>
+          <h2 className="section-title">
+            <Icon.Sparkles style={{ width: 22, height: 22, color: "#22d3ee" }} />
+            Más populares
+          </h2>
           <p className="muted">Aparecen en más tier lists.</p>
           <RankList items={stats.mostRanked} />
         </div>
       </div>
 
-      <h2 className="section-title">⚔️ Más divisivos</h2>
+      <h2 className="section-title">
+        <Icon.Layers style={{ width: 22, height: 22, color: "#f0abfc" }} />
+        Más divisivos
+      </h2>
       <p className="muted">Mayor desacuerdo entre los usuarios.</p>
       <RankList
         items={stats.mostDivisive}
@@ -94,31 +115,21 @@ export default function Stats() {
         valueLabel="dispersión"
       />
 
-      <h2 className="section-title">📊 Distribución por tier</h2>
+      <h2 className="section-title">
+        <Icon.Chart style={{ width: 22, height: 22, color: "#7c5cff" }} />
+        Distribución por tier
+      </h2>
       <div>
         {(stats.tierDistribution || []).map((t) => {
           const pct = totalDist ? (Number(t.count) / totalDist) * 100 : 0;
           return (
-            <div key={t.tier_label} style={{ marginBottom: 8 }}>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <div className="bar-row" key={t.tier_label}>
+              <div className="bar-top">
                 <strong>{t.tier_label}</strong>
                 <span className="muted">{t.count}</span>
               </div>
-              <div
-                style={{
-                  background: "var(--panel-2)",
-                  borderRadius: 6,
-                  overflow: "hidden",
-                  height: 14,
-                }}
-              >
-                <div
-                  style={{
-                    width: `${pct}%`,
-                    height: "100%",
-                    background: "var(--accent)",
-                  }}
-                />
+              <div className="bar-track">
+                <div className="bar-fill" style={{ width: `${pct}%` }} />
               </div>
             </div>
           );

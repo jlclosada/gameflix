@@ -66,15 +66,28 @@ npm run dev                   # arranca en http://localhost:4000
 
 ### Endpoints
 
-| Método | Ruta                 | Descripción                                 |
-| ------ | -------------------- | ------------------------------------------- |
-| GET    | `/api/health`        | Estado del servicio                         |
-| GET    | `/api/games`         | Catálogo (`?search=&genre=&limit=&offset=`) |
-| GET    | `/api/games/genres`  | Géneros disponibles                         |
-| POST   | `/api/tierlists`     | Publicar una tier list                      |
-| GET    | `/api/tierlists`     | Listar tier lists publicadas                |
-| GET    | `/api/tierlists/:id` | Ver una tier list con sus juegos            |
-| GET    | `/api/stats`         | Estadísticas agregadas                      |
+| Método | Ruta                 | Descripción                                    |
+| ------ | -------------------- | ---------------------------------------------- |
+| GET    | `/api/health`        | Estado del servicio                            |
+| POST   | `/api/auth/register` | Crear cuenta (`username`, `email`, `password`) |
+| POST   | `/api/auth/login`    | Iniciar sesión (`identifier`, `password`)      |
+| GET    | `/api/auth/me`       | Usuario autenticado (requiere token)           |
+| GET    | `/api/games`         | Catálogo (`?search=&genre=&limit=&offset=`)    |
+| GET    | `/api/games/genres`  | Géneros disponibles                            |
+| POST   | `/api/tierlists`     | Publicar una tier list (token opcional)        |
+| GET    | `/api/tierlists`     | Listar tier lists publicadas                   |
+| GET    | `/api/tierlists/:id` | Ver una tier list con sus juegos               |
+| GET    | `/api/stats`         | Estadísticas agregadas                         |
+
+### Autenticación
+
+Los usuarios pueden registrarse e iniciar sesión. La sesión se basa en un
+**JWT** (cabecera `Authorization: Bearer <token>`). Al publicar una tier list
+estando autenticado, queda registrada con tu nombre de usuario.
+
+> Configura `JWT_SECRET` como variable de entorno en producción (un valor
+> largo y aleatorio). El catálogo (`/api/games`) admite paginación mediante
+> `limit`/`offset` y devuelve `total` para construir el paginador.
 
 ### Estadísticas
 
@@ -98,9 +111,15 @@ npm run dev                   # http://localhost:5173 (proxy a la API en :4000)
 
 Páginas:
 
-- **Crear** — editor con arrastrar y soltar para colocar juegos en tiers.
-- **Explorar** — tier lists publicadas.
-- **Estadísticas** — rankings de la comunidad.
+- **Juegos** — buscador global del catálogo con filtros y paginación.
+- **Crear** — editor con arrastrar y soltar para colocar juegos en tiers
+  (inicia sesión para publicar con tu nombre).
+- **Explorar** — tier lists publicadas con vista previa.
+- **Ranking** — estadísticas de la comunidad.
+
+El diseño es de tipo _glassmorphism_ (estilo Apple/futurista): las portadas se
+muestran completas, el nombre aparece solo al pasar el ratón, y hay animaciones
+y efectos en toda la interfaz.
 
 Para producción, configura `VITE_API_URL` con la URL del backend desplegado.
 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../api.js";
+import { Icon } from "../components/Icons.jsx";
 
 export default function ViewTierlist() {
   const { id } = useParams();
@@ -17,7 +18,13 @@ export default function ViewTierlist() {
       .finally(() => setLoading(false));
   }, [id]);
 
-  if (loading) return <div className="loading">Cargando tier list...</div>;
+  if (loading)
+    return (
+      <div className="loading">
+        <div className="spinner" />
+        Cargando tier list...
+      </div>
+    );
   if (error) return <div className="error">{error}</div>;
   if (!data) return null;
 
@@ -25,16 +32,28 @@ export default function ViewTierlist() {
 
   return (
     <div>
-      <div className="toolbar">
+      <div className="page-head">
         <div>
-          <h1 style={{ margin: 0 }}>{data.title}</h1>
-          <p className="muted" style={{ margin: "4px 0 0" }}>
-            por {data.author}
-            {data.category ? ` · ${data.category}` : ""} · {data.views} vistas
-          </p>
+          <h1>{data.title}</h1>
+          <div className="tl-meta" style={{ marginTop: 10 }}>
+            <span className="badge accent">
+              <span
+                className="avatar"
+                style={{ width: 20, height: 20, fontSize: "0.62rem" }}
+              >
+                {(data.author || "?").slice(0, 1).toUpperCase()}
+              </span>
+              {data.author}
+            </span>
+            {data.category && <span className="badge">{data.category}</span>}
+            <span className="badge">
+              <Icon.Eye style={{ width: 12, height: 12 }} />
+              {data.views} vistas
+            </span>
+          </div>
         </div>
-        <div className="spacer" />
-        <Link to="/create" className="btn secondary">
+        <Link to="/create" className="btn btn-sm">
+          <Icon.Sparkles style={{ width: 16, height: 16 }} />
           Crear la mía
         </Link>
       </div>
@@ -42,7 +61,10 @@ export default function ViewTierlist() {
       <div className="tiers">
         {(data.tiers || []).map((tier, i) => (
           <div className="tier-row" key={i}>
-            <div className="tier-label" style={{ background: tier.color || "#ccc" }}>
+            <div
+              className="tier-label"
+              style={{ background: tier.color || "var(--grad-brand)" }}
+            >
               {tier.label}
             </div>
             <div className="tier-drop">
@@ -51,8 +73,15 @@ export default function ViewTierlist() {
                 if (!game) return null;
                 return (
                   <div className="game-tile" key={gid} title={game.name}>
-                    {game.image_url && (
+                    {game.image_url ? (
                       <img src={game.image_url} alt={game.name} loading="lazy" />
+                    ) : (
+                      <span
+                        className="tile-name"
+                        style={{ opacity: 1, transform: "none" }}
+                      >
+                        {game.name}
+                      </span>
                     )}
                     <span className="tile-name">{game.name}</span>
                   </div>
