@@ -16,9 +16,10 @@ services:
     plan: free
     rootDir: backend
     buildCommand: npm install
-    # Creates tables (idempotent) before each deploy, then starts the server.
-    preDeployCommand: npm run init-db
-    startCommand: npm start
+    # Creates tables (idempotent, IF NOT EXISTS) on every boot, then starts.
+    # Done in startCommand so it also works on Render's free tier, where
+    # preDeployCommand is not available.
+    startCommand: npm run init-db && npm start
     healthCheckPath: /api/health
     envVars:
       - key: DATABASE_URL
