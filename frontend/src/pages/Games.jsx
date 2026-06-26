@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api.js";
+import GameTile from "../components/GameTile.jsx";
 import { Icon } from "../components/Icons.jsx";
 
 const PAGE_SIZE = 36;
@@ -105,7 +106,7 @@ export default function Games() {
       ) : (
         <div className="game-grid">
           {games.map((g) => (
-            <GameCard key={g.id} game={g} />
+            <GameTile key={g.id} game={g} draggable={false} className="lg" />
           ))}
         </div>
       )}
@@ -135,17 +136,4 @@ export default function Games() {
   );
 }
 
-function GameCard({ game }) {
-  return (
-    <div className="game-tile lg" title={game.name}>
-      {game.image_url ? (
-        <img src={game.image_url} alt={game.name} loading="lazy" />
-      ) : (
-        <span className="tile-name" style={{ opacity: 1, transform: "none" }}>
-          {game.name}
-        </span>
-      )}
-      <span className="tile-name">{game.name}</span>
-    </div>
-  );
-}
+

@@ -25,8 +25,12 @@ cd downloader
 python -m venv .venv && source .venv/bin/activate   # opcional
 pip install -r requirements.txt
 
-# Descargar ~150 juegos populares con sus portadas
+# Descargar ~150 juegos populares con sus portadas (con géneros y rating)
 python steam_downloader.py --limit 150
+
+# MODO MASIVO: miles de juegos del buscador de Steam (rápido, sin imágenes
+# locales; usa las portadas del CDN de Steam). Sin géneros/metacritic.
+python steam_downloader.py --bulk --limit 5000 --sort Reviews_DESC --no-images
 
 # Más opciones
 python steam_downloader.py --limit 300 --sources mostplayed,topsellers,newreleases
@@ -34,8 +38,14 @@ python steam_downloader.py --limit 100 --no-reviews   # más rápido, sin rating
 python steam_downloader.py --limit 100 --no-images    # solo metadatos
 ```
 
-Fuentes disponibles (`--sources`): `mostplayed`, `topsellers`, `newreleases`,
-`specials`.
+Modos:
+
+- **Normal** (`--sources`): enriquece cada juego con géneros, plataformas,
+  metacritic y rating. Fuentes: `mostplayed`, `topsellers`, `newreleases`,
+  `specials`. Más lento (1 llamada por juego).
+- **Masivo** (`--bulk`): recupera **miles** de juegos del buscador público de
+  Steam (hay ~155.000 disponibles). Muy rápido. Ordena con `--sort`
+  (`Reviews_DESC`, `Released_DESC`, `Name_ASC`).
 
 Genera:
 

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api.js";
 import GameTile from "../components/GameTile.jsx";
+import { Icon } from "../components/Icons.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
 
 const DEFAULT_TIERS = [

@@ -752,6 +752,19 @@ select option {
   opacity: 1;
   transform: translateY(0);
 }
+.game-tile .tile-name.fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 8px;
+  background: var(--grad-brand-soft);
+  opacity: 1;
+  transform: none;
+  -webkit-line-clamp: 4;
+}
 .game-tile.dragging {
   opacity: 0.35;
   transform: scale(0.9);

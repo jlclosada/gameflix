@@ -30,6 +30,7 @@ Usage examples:
 from __future__ import annotations
 
 import argparse
+import html
 import json
 import re
 import sys
@@ -55,6 +56,7 @@ MOST_PLAYED_URL = (
 )
 FEATURED_URL = "https://store.steampowered.com/api/featuredcategories"
 STORE_DETAILS_URL = "https://store.steampowered.com/api/appdetails"
+STORE_SEARCH_URL = "https://store.steampowered.com/search/results/"
 APPREVIEWS_URL = "https://store.steampowered.com/appreviews"
 CDN_BASE = "https://cdn.cloudflare.steamstatic.com/steam/apps"
 
@@ -151,6 +153,99 @@ def collect_appids(session: requests.Session, sources: list[str]) -> list[int]:
         except DownloadError as exc:
             print(f"  Source '{source}' failed: {exc}", file=sys.stderr)
     return ordered
+
+
+def fetch_store_search(
+    session: requests.Session,
+    max_games: int,
+    sort_by: str = "",
+) -> list[dict[str, Any]]:
+    """Bulk-fetch thousands of games from the Steam store search endpoint.
+
+    Uses the public "infinite scroll" JSON results, filtered to category Games
+    (``category1=998``). No per-game API calls are made, so this is fast and not
+    affected by the appdetails rate limit. Cover art comes straight from the
+    Steam CDN. Genres/metacritic are left empty (use the enrich path for those).
+    """
+    games: list[dict[str, Any]] = []
+    seen: set[int] = set()
+    start = 0
+    count = 100
+    total: int | None = None
+
+    while len(games) < max_games:
+        params: dict[str, Any] = {
+            "query": "",
+            "start": start,
+            "count": count,
+            "infinite": 1,
+            "category1": 998,  # 998 = Games (excludes DLC, soundtracks, etc.)
+            "supportedlang": "english",
+            "ndl": 1,
+        }
+        if sort_by:
+            params["sort_by"] = sort_by
+
+        try:
+            payload = request_json(session, STORE_SEARCH_URL, params)
+        except DownloadError as exc:
+            print(f"  Search page start={start} failed: {exc}", file=sys.stderr)
+            break
+
+        if total is None:
+            total = int(payload.get("total_count") or 0)
+            print(f"Steam search reports {total} games available.")
+
+        results_html = payload.get("results_html") or ""
+        rows = re.split(r"(?=<a\b)", results_html)
+        added = 0
+        for row in rows:
+            if "search_result_row" not in row:
+                continue
+            appid_match = re.search(r'data-ds-appid="(\d+)', row)
+            title_match = re.search(r'<span class="title">([^<]+)</span>', row)
+            if not appid_match or not title_match:
+                continue
+            appid = int(appid_match.group(1))
+            if appid in seen:
+                continue
+            seen.add(appid)
+
+            name = html.unescape(title_match.group(1)).strip()
+            if not name:
+                continue
+
+            released = None
+            rel_match = re.search(r'search_released[^"]*">([^<]*)</div>', row)
+            if rel_match and rel_match.group(1).strip():
+                released = html.unescape(rel_match.group(1)).strip()
+
+            games.append(
+                {
+                    "id": appid,
+                    "slug": slugify(name),
+                    "name": name,
+                    "released": released,
+                    "background_image": f"{CDN_BASE}/{appid}/library_600x900_2x.jpg",
+                    "rating": None,
+                    "metacritic": None,
+                    "genres": [],
+                    "platforms": [],
+                }
+            )
+            added += 1
+            if len(games) >= max_games:
+                break
+
+        print(f"  start={start}: +{added} games (kept {len(games)})")
+        start += count
+        if added == 0:
+            break
+        if total and start >= total:
+            break
+        time.sleep(0.4)
+
+    return games
 
 
 def fetch_store_details(
@@ -347,6 +442,23 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Maximum number of games to keep (enriched via the store).",
     )
     parser.add_argument(
+        "--bulk",
+        action="store_true",
+        help=(
+            "Fast mode: pull thousands of games from the Steam store search "
+            "(no per-game enrichment). Ideal for a huge catalog. Genres and "
+            "metacritic are left empty; covers come from the Steam CDN."
+        ),
+    )
+    parser.add_argument(
+        "--sort",
+        default="",
+        help=(
+            "Bulk sort order: '' (relevance), 'Released_DESC', "
+            "'Name_ASC', 'Reviews_DESC' (most reviewed)."
+        ),
+    )
+    parser.add_argument(
         "--workers", type=int, default=8, help="Concurrent image downloads."
     )
     parser.add_argument(
@@ -374,19 +486,26 @@ def main(argv: list[str] | None = None) -> int:
     images_dir = output_dir / "images"
     manifest_path = output_dir / "games.json"
 
-    sources = [s.strip() for s in args.sources.split(",") if s.strip()]
-    appids = collect_appids(session, sources)
-    if not appids:
-        print("ERROR: could not collect any app ids from Steam.", file=sys.stderr)
-        return 1
-    print(f"\nCollected {len(appids)} candidate app ids.")
+    if args.bulk:
+        print(f"Bulk mode: fetching up to {args.limit} games from Steam search...")
+        games = fetch_store_search(session, args.limit, args.sort)
+        print(f"\nCollected {len(games)} games from store search.")
+    else:
+        sources = [s.strip() for s in args.sources.split(",") if s.strip()]
+        appids = collect_appids(session, sources)
+        if not appids:
+            print(
+                "ERROR: could not collect any app ids from Steam.", file=sys.stderr
+            )
+            return 1
+        print(f"\nCollected {len(appids)} candidate app ids.")
 
-    games = build_games(session, appids, args.limit, not args.no_reviews)
-    print(f"\nKept {len(games)} games with full details.")
+        games = build_games(session, appids, args.limit, not args.no_reviews)
+        print(f"\nKept {len(games)} games with full details.")
 
     if not games:
         print(
-            "No games to save. Try other --sources or a larger --limit.",
+            "No games to save. Try other options or a larger --limit.",
             file=sys.stderr,
         )
         return 1
